@@ -45,17 +45,21 @@ public:
 
     /*
       reply - reply to be proxied(nested reply)
-      shouldCaptureResponseBody - if true, response body will be collected and
-                                  available through body() method
+      m_captureContentPatterns - patterns for which we should capture the response body
      */
     NetworkReplyProxy(QObject* parent, QNetworkReply* reply,
-                      bool shouldCaptureResponseBody);
+                      QStringList m_captureContentPatterns);
 
 
     /*
       Returns collected body
      */
     QString body();
+
+    /*
+      Returns the body size. Even if body isn't being captured.
+     */
+    int bodySize();
 
 
     /*
@@ -73,7 +77,6 @@ public:
     void close();
     bool isSequential() const;
 
-
     // not possible...
     void setReadBufferSize(qint64 size);
 
@@ -81,6 +84,8 @@ public:
     virtual qint64 bytesAvailable() const;
     virtual qint64 bytesToWrite() const;
     virtual qint64 readData(char* data, qint64 maxlen);
+
+    bool shouldCaptureResponse(const QString& contentType);
 
 public Q_SLOTS:
     void ignoreSslErrors();
@@ -94,6 +99,8 @@ private:
     QByteArray m_data;
     QByteArray m_buffer;
     bool m_shouldCaptureResponseBody;
+    QList<QRegExp> m_compiledCaptureContentPatterns;
+    int m_dataSize;
 };
 
 #endif // NETWORKREPLYPROXY_H

@@ -34,10 +34,9 @@
 #include "networkreplyproxy.h"
 
 NetworkReplyProxy::NetworkReplyProxy(QObject* parent, QNetworkReply* reply,
-                                     bool shouldCaptureResponse)
+                                     QStringList m_captureContentPatterns)
     : QNetworkReply(parent)
     , m_reply(reply)
-    , m_shouldCaptureResponseBody(shouldCaptureResponse)
 {
     // apply attributes...
     setOperation(m_reply->operation());
@@ -54,8 +53,18 @@ NetworkReplyProxy::NetworkReplyProxy(QObject* parent, QNetworkReply* reply,
     connect(m_reply, SIGNAL(uploadProgress(qint64, qint64)), SIGNAL(uploadProgress(qint64, qint64)));
     connect(m_reply, SIGNAL(downloadProgress(qint64, qint64)), SIGNAL(downloadProgress(qint64, qint64)));
 
+    // Start to capture until we have the Content-Type header to figure out if we really want it.
+    m_shouldCaptureResponseBody = true;
+
+    m_dataSize = 0;
+
     // for the data proxy...
     setOpenMode(ReadOnly);
+
+    for (QStringList::const_iterator it = m_captureContentPatterns.constBegin();
+             it != m_captureContentPatterns.constEnd(); ++it) {
+        m_compiledCaptureContentPatterns.append(QRegExp(*it, Qt::CaseInsensitive));
+    }
 }
 
 QString NetworkReplyProxy::body()
@@ -68,6 +77,11 @@ QString NetworkReplyProxy::body()
     }
 
     return ret;
+}
+
+int NetworkReplyProxy::bodySize()
+{
+    return m_dataSize;
 }
 
 void NetworkReplyProxy::abort()
@@ -113,6 +127,19 @@ void NetworkReplyProxy::ignoreSslErrors()
     m_reply->ignoreSslErrors();
 }
 
+bool NetworkReplyProxy::shouldCaptureResponse(const QString& contentType)
+{
+    for (QList<QRegExp>::const_iterator it = m_compiledCaptureContentPatterns.constBegin();
+            it != m_compiledCaptureContentPatterns.constEnd(); ++it) {
+
+        if (-1 != it->indexIn(contentType)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 void NetworkReplyProxy::applyMetaData()
 {
     /*
@@ -131,6 +158,13 @@ void NetworkReplyProxy::applyMetaData()
     setHeader(QNetworkRequest::LocationHeader, m_reply->header(QNetworkRequest::LocationHeader));
     setHeader(QNetworkRequest::LastModifiedHeader, m_reply->header(QNetworkRequest::LastModifiedHeader));
     setHeader(QNetworkRequest::SetCookieHeader, m_reply->header(QNetworkRequest::SetCookieHeader));
+
+    m_shouldCaptureResponseBody = shouldCaptureResponse(m_reply->header(QNetworkRequest::ContentTypeHeader).toString());
+
+    if (!m_shouldCaptureResponseBody)
+    {
+        m_data.clear();
+    }
 
     setAttribute(QNetworkRequest::HttpStatusCodeAttribute, m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute));
     setAttribute(QNetworkRequest::HttpReasonPhraseAttribute, m_reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute));
@@ -162,6 +196,8 @@ void NetworkReplyProxy::readInternal()
         //this is a response buffer, whole response is stored here
         m_data += data;
     }
+
+    m_dataSize += data.size();
 
     //this is a temporary buffer, data is wiped after a call to 'readData'
     m_buffer += data;

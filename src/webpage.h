@@ -183,6 +183,7 @@ public:
      *         Pages that this page has currently open.
      */
     QStringList pagesWindowName() const;
+
     /**
      * Returns a list of URL patterns, for which response body
      * will be captured and returned in onResourceReceived event
@@ -285,6 +286,7 @@ public slots:
     void sendEvent(const QString& type, const QVariant& arg1 = QVariant(), const QVariant& arg2 = QVariant(), const QString& mouseButton = QString(), const QVariant& modifierArg = QVariant());
 
     void setContent(const QString& content, const QString& baseUrl);
+    void setFrameContent(const QString& content, const QString& baseUrl);
     /**
      * Returns a Child Page that matches the given <code>"window.name"</code>.
      * This utility method is faster than accessing the

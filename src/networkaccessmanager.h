@@ -114,7 +114,7 @@ signals:
 
 private slots:
     void handleStarted(QNetworkReply* reply, int requestId);
-    void handleFinished(QNetworkReply* reply, int requestId, int status, const QString& statusText, const QString& body);
+    void handleFinished(QNetworkReply* reply, int requestId, int status, const QString& statusText, const QString& body, int bodySize);
     void provideAuthentication(QNetworkReply* reply, QAuthenticator* authenticator);
     void handleSslErrors(QNetworkReply* reply, const QList<QSslError>& errors);
     void handleNetworkError(QNetworkReply* reply, int requestId);
@@ -122,8 +122,6 @@ private slots:
 
 private:
 
-    bool shouldCaptureResponse(const QString& url);
-    void compileCaptureContentPatterns();
     void prepareSslConfiguration(const Config* config);
     QVariantList getHeadersFromReply(const QNetworkReply* reply);
 
@@ -131,7 +129,6 @@ private:
     QNetworkDiskCache* m_networkDiskCache;
     QVariantMap m_customHeaders;
     QStringList m_captureContentPatterns;
-    QList<QRegExp> m_compiledCaptureContentPatterns;
     QSslConfiguration m_sslConfiguration;
 
     NetworkReplyTracker m_replyTracker;

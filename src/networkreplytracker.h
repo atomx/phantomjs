@@ -56,10 +56,10 @@ public:
     /*
       reply - reply to track
       requestId - unique request id, used to distinguis replies internally
-      shouldCaptureResponseBody - if true, response body will be available in 'finished' signal
+      m_captureContentPatterns - Content-Type patterns for which to capture the body
      */
     QNetworkReply* trackReply(QNetworkReply* reply, int requestId,
-                              bool shouldCaptureResponseBody);
+                              QStringList m_captureContentPatterns);
 
 
     /*
@@ -73,7 +73,7 @@ public:
 signals:
 
     void started(QNetworkReply* reply, int requestId);
-    void finished(QNetworkReply* reply, int requestId, int status, const QString& statusText, const QString& body);
+    void finished(QNetworkReply* reply, int requestId, int status, const QString& statusText, const QString& body, int bodySize);
     void sslErrors(QNetworkReply*, const QList<QSslError>&);
     void error(QNetworkReply*, int requestId, QNetworkReply::NetworkError);
 

@@ -190,7 +190,7 @@ NetworkAccessManager::NetworkAccessManager(QObject* parent, const Config* config
     connect(&m_replyTracker, SIGNAL(started(QNetworkReply*, int)), this,  SLOT(handleStarted(QNetworkReply*, int)));
     connect(&m_replyTracker, SIGNAL(sslErrors(QNetworkReply*, const QList<QSslError>&)), this, SLOT(handleSslErrors(QNetworkReply*, const QList<QSslError>&)));
     connect(&m_replyTracker, SIGNAL(error(QNetworkReply*, int, QNetworkReply::NetworkError)), this, SLOT(handleNetworkError(QNetworkReply*, int)));
-    connect(&m_replyTracker, SIGNAL(finished(QNetworkReply*, int, int, const QString&, const QString&)), SLOT(handleFinished(QNetworkReply*, int, int, const QString&, const QString&)));
+    connect(&m_replyTracker, SIGNAL(finished(QNetworkReply*, int, int, const QString&, const QString&, int)), SLOT(handleFinished(QNetworkReply*, int, int, const QString&, const QString&, int)));
 }
 
 void NetworkAccessManager::prepareSslConfiguration(const Config* config)
@@ -307,20 +307,6 @@ QStringList NetworkAccessManager::captureContent() const
 void NetworkAccessManager::setCaptureContent(const QStringList& patterns)
 {
     m_captureContentPatterns = patterns;
-
-    compileCaptureContentPatterns();
-}
-
-void NetworkAccessManager::compileCaptureContentPatterns()
-{
-    foreach(const QString & plainRegex, m_captureContentPatterns) {
-        QRegExp regexp = QRegExp(plainRegex, Qt::CaseInsensitive);
-        if (m_compiledCaptureContentPatterns.contains(regexp)) {
-            qWarning() << "Attempt to add duplicate regular expression: " << plainRegex;
-        } else {
-            m_compiledCaptureContentPatterns.append(regexp);
-        }
-    }
 }
 
 
@@ -403,7 +389,7 @@ QNetworkReply* NetworkAccessManager::createRequest(Operation op, const QNetworkR
     }
     QNetworkReply* tracked_reply = m_replyTracker.trackReply(nested_reply,
                                    m_idCounter,
-                                   shouldCaptureResponse(req.url().toString()));
+                                   m_captureContentPatterns);
 
     // reparent jsNetworkRequest to make sure that it will be destroyed with QNetworkReply
     jsNetworkRequest.setParent(tracked_reply);
@@ -422,17 +408,6 @@ QNetworkReply* NetworkAccessManager::createRequest(Operation op, const QNetworkR
     }
 
     return tracked_reply;
-}
-
-bool NetworkAccessManager::shouldCaptureResponse(const QString& url)
-{
-    foreach(QRegExp regexp, m_compiledCaptureContentPatterns) {
-        if (regexp.indexIn(url) != -1) {
-            return true;
-        }
-    }
-
-    return false;
 }
 
 void NetworkAccessManager::handleTimeout()
@@ -463,7 +438,7 @@ void NetworkAccessManager::handleStarted(QNetworkReply* reply, int requestId)
     data["status"] = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute);
     data["statusText"] = reply->attribute(QNetworkRequest::HttpReasonPhraseAttribute);
     data["contentType"] = reply->header(QNetworkRequest::ContentTypeHeader);
-    data["bodySize"] = reply->size();
+    data["bodySize"] = 0;
     data["redirectURL"] = reply->header(QNetworkRequest::LocationHeader);
     data["headers"] = headers;
     data["time"] = QDateTime::currentDateTime();
@@ -483,7 +458,7 @@ void NetworkAccessManager::provideAuthentication(QNetworkReply* reply, QAuthenti
     }
 }
 
-void NetworkAccessManager::handleFinished(QNetworkReply* reply, int requestId, int status, const QString& statusText, const QString& body)
+void NetworkAccessManager::handleFinished(QNetworkReply* reply, int requestId, int status, const QString& statusText, const QString& body, int bodySize)
 {
     QVariantList headers = getHeadersFromReply(reply);
 
@@ -498,7 +473,7 @@ void NetworkAccessManager::handleFinished(QNetworkReply* reply, int requestId, i
     data["headers"] = headers;
     data["time"] = QDateTime::currentDateTime();
     data["body"] = body;
-    data["bodySize"] = body.length();
+    data["bodySize"] = bodySize;
 
     emit resourceReceived(data);
 }
